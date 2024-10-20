@@ -35,7 +35,7 @@ while t < t_end:
   sys.stdout.write("\r%d%%" % (t/(t_end)*100)) # print the percentage of the simulation completed
 
   # Implement the short circuit in the bus where the generator is connected
-  if 1 > t:
+  if t > 1 and t < 1.01:
     # ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 1e6 # set the admittance of the bus where the short circuit occurs to 1e6
     
     v = ps.v_0[sc_bus_idx]
@@ -43,16 +43,11 @@ while t < t_end:
     s_old = ps.loads['Load'].par['P'][1] + 1j * ps.loads['Load'].par['Q'][1] # "old" apparent power
     # z_old
     z_old = np.conj(abs(v) ** 2 / s_old) # impedance of the load
-    # y_old
     y_old = 1/z_old # admittance of the load
   
-    # s_new (correspondin gto new P)
     s_new = s_old + 1e2 # increase the apparent power of the load
-    # z_new
     z_new = np.conj(abs(v) ** 2 / s_new)
-    # y_new
     y_new = 1/z_new
-    # ps.y_bus_red_mod[position] = y_new - y_old
     ps.y_bus_red_mod[(sc_bus_idx,) * 2] = y_new - y_old
     
 
@@ -67,12 +62,22 @@ while t < t_end:
 
   # Store result
   res['t'].append(t)
-  res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the 
+  res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
+
+H = ps.gen['GEN'].par['H'] # Inertia of the generators
+COI = res['gen_speed']@H/np.sum(H)
 
 print('Simulation completed in {:.2f} seconds.'.format(time.time() - t_0))
 
-plt.figure()
+plt.figure(1)
 plt.plot(res['t'], res['gen_speed'])
 plt.xlabel('Time [s]')
 plt.ylabel('Gen. speed')
+plt.legend(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10'])
+
+plt.figure(2)
+plt.plot(res['t'], COI)
+plt.xlabel('Time [s]')
+plt.ylabel('COI freq')
+
 plt.show()
