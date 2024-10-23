@@ -27,29 +27,21 @@ t = 0
 res = defaultdict(list) # store the results
 
 # sc_bus_idx = ps.gen['GEN'].bus_idx_red['terminal'][0] # get the bus index of the generator where the short circuit occurs
-sc_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][1] # get the bus index of the generator where the short circuit occurs
+event_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][1] # get the bus index of the generator where the short circuit occurs
+all_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'] # index of all the buses
+
 # ps.gen['GEN'] -> access all the generators in the network
 # ps.gen['GEN'].bus_idx_red['terminal'][0] -> get the bus index of the generator where the short circuit occurs
-
+s_const = ps.loads['Load'].par['P'] + 1j * ps.loads['Load'].par['Q'] # "old" apparent power
+v_old = ps.v_0[all_load_bus_idx]
+y_old = abs(v_old)**2*np.conj(s_const) # admittance of the load
+        
 while t < t_end:
   sys.stdout.write("\r%d%%" % (t/(t_end)*100)) # print the percentage of the simulation completed
 
   # Implement the short circuit in the bus where the generator is connected
-  if t > 1 and t < 1.01:
-    # ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 1e6 # set the admittance of the bus where the short circuit occurs to 1e6
-    
-    v = ps.v_0[sc_bus_idx]
-    # s_old (comes from model in pu)
-    s_old = ps.loads['Load'].par['P'][1] + 1j * ps.loads['Load'].par['Q'][1] # "old" apparent power
-    # z_old
-    z_old = np.conj(abs(v) ** 2 / s_old) # impedance of the load
-    y_old = 1/z_old # admittance of the load
-  
-    s_new = s_old + 1e2 # increase the apparent power of the load
-    z_new = np.conj(abs(v) ** 2 / s_new)
-    y_new = 1/z_new
-    ps.y_bus_red_mod[(sc_bus_idx,) * 2] = y_new - y_old
-    
+  #if event:
+  #  s_const[idx_event] += 1e2
 
   # Simulate next step
   result = sol.step() # integrate the system one step
@@ -58,11 +50,17 @@ while t < t_end:
   v = sol.v # complex node voltage
   t = sol.t
 
+  # Constant power loads: update the modified admittance matrix
+  v_load = v[all_load_bus_idx]
+  y_new = abs(v_load)**2*np.conj(s_const) # new admittance of the load
+  ps.y_bus_red_mod[(all_load_bus_idx,) * 2] = y_new - y_old
+
   dx = ps.ode_fun(0, ps.x_0) # compute the derivative of the state variables (in case they are needed)
 
   # Store result
   res['t'].append(t)
   res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
+  
 
 H = ps.gen['GEN'].par['H'] # Inertia of the generators
 COI = res['gen_speed']@H/np.sum(H)
