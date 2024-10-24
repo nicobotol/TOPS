@@ -16,7 +16,8 @@ ps = dps.PowerSystemModel(model=model)
 ps.init_dyn_sim() # initialize power flow on the network
 print(max(abs(ps.state_derivatives(0, ps.x_0, ps.v_0))))
 
-t_end = 50 # simulation time
+t_end = 30 # simulation time
+t_event = 1 # time of the load step occurance
 t_0 = time.time()
 x_0 = ps.x_0.copy() # set the initial state as the one computes before
 
@@ -26,36 +27,21 @@ sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x_0,
 t = 0
 res = defaultdict(list) # store the results
 
-# sc_bus_idx = ps.gen['GEN'].bus_idx_red['terminal'][0] # get the bus index of the generator where the short circuit occurs
-sc_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][1] # get the bus index of the generator where the short circuit occurs
-# ps.gen['GEN'] -> access all the generators in the network
-# ps.gen['GEN'].bus_idx_red['terminal'][0] -> get the bus index of the generator where the short circuit occurs
+event_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][1] # bus index of the generator where the P step
+all_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'] # index of all the loads
 
+s_const_old = (ps.loads['Load'].par['P'] + 1j * ps.loads['Load'].par['Q'])/ps.s_n # "old" apparent power
+v_old = ps.v_0[all_load_bus_idx]
+y_old = np.conj(s_const_old)/abs(v_old)**2 # admittance of the load
+v = ps.v_0
+        
 while t < t_end:
   sys.stdout.write("\r%d%%" % (t/(t_end)*100)) # print the percentage of the simulation completed
 
   # Implement the short circuit in the bus where the generator is connected
-  if 1 > t:
-    # ps.y_bus_red_mod[(sc_bus_idx,) * 2] = 1e6 # set the admittance of the bus where the short circuit occurs to 1e6
-    
-    v = ps.v_0[sc_bus_idx]
-    # s_old (comes from model in pu)
-    s_old = ps.loads['Load'].par['P'][1] + 1j * ps.loads['Load'].par['Q'][1] # "old" apparent power
-    # z_old
-    z_old = np.conj(abs(v) ** 2 / s_old) # impedance of the load
-    # y_old
-    y_old = 1/z_old # admittance of the load
-  
-    # s_new (correspondin gto new P)
-    s_new = s_old + 1e2 # increase the apparent power of the load
-    # z_new
-    z_new = np.conj(abs(v) ** 2 / s_new)
-    # y_new
-    y_new = 1/z_new
-    # ps.y_bus_red_mod[position] = y_new - y_old
-    ps.y_bus_red_mod[(sc_bus_idx,) * 2] = y_new - y_old
-    
-
+  if t > t_event and t < t_event +5e-3:
+   s_const_old[event_load_bus_idx] += 1e2/ps.s_n 
+ 
   # Simulate next step
   result = sol.step() # integrate the system one step
   # Extract the information from the solution
@@ -63,16 +49,42 @@ while t < t_end:
   v = sol.v # complex node voltage
   t = sol.t
 
+  # Constant power loads: update the modified admittance matrix
+  Igen_4_3 = ps.y_bus_red_full[3,2]*(v[3] - v[2])
+  Igen_4_5 = ps.y_bus_red_full[3,4]*(v[3] - v[4])
+  Igen_4_14 = ps.y_bus_red_full[3,13]*(v[3] - v[13])
+  s_4 = v[3]*np.conj(Igen_4_3 + Igen_4_5 + Igen_4_14)
+  v_load = v[all_load_bus_idx]
+  y_new = np.conj(s_const_old)/abs(v_load)**2 # new admittance of the load
+  ps.y_bus_red_mod[(all_load_bus_idx,) * 2] = y_new - y_old
+
   dx = ps.ode_fun(0, ps.x_0) # compute the derivative of the state variables (in case they are needed)
 
   # Store result
   res['t'].append(t)
-  res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the 
+  res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
+  res['P_4'].append(np.real(s_4)*ps.s_n) # extract the active power of the generator 4
+  
+
+H = ps.gen['GEN'].par['H'] # Inertia of the generators
+COI = res['gen_speed']@H/np.sum(H)
 
 print('Simulation completed in {:.2f} seconds.'.format(time.time() - t_0))
 
-plt.figure()
-plt.plot(res['t'], res['gen_speed'])
+# plt.figure(1)
+# plt.plot(res['t'], res['gen_speed'])
+# plt.xlabel('Time [s]')
+# plt.ylabel('Gen. speed')
+# plt.legend(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10'])
+
+plt.figure(2)
+plt.plot(res['t'], COI)
 plt.xlabel('Time [s]')
-plt.ylabel('Gen. speed')
+plt.ylabel('COI freq')
+
+plt.figure(3)
+plt.plot(res['t'], res['P_4'])
+plt.xlabel('Time [s]')
+plt.ylabel('P4 [MW]')
+
 plt.show()
