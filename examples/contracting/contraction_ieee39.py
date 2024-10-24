@@ -50,10 +50,18 @@ while t < t_end:
   t = sol.t
 
   # Constant power loads: update the modified admittance matrix
+<<<<<<< HEAD
   Igen_4_3 = ps.y_bus_red_full[3,2]*(v[3] - v[2])
   Igen_4_5 = ps.y_bus_red_full[3,4]*(v[3] - v[4])
   Igen_4_14 = ps.y_bus_red_full[3,13]*(v[3] - v[13])
   s_4 = v[3]*np.conj(Igen_4_3 + Igen_4_5 + Igen_4_14)
+=======
+  # tmp = ps.y_bus_red_full[3,2]
+  # Igen_43 = ps.y_bus_red_full[3,2]*(v[3] - v[2])
+  # Igen_45 = ps.y_bus_red_full[3,4]*(v[3] - v[4])
+  # Igen_4_14 = ps.y_bus_red_full[3,13]*(v[3] - v[13])
+  # s_43 = v[3]*np.conj(Igen_43 + Igen_45)
+>>>>>>> c8ba5d8cb1292c9e8b4c070ab6cb3e75026fd13d
   v_load = v[all_load_bus_idx]
   y_new = np.conj(s_const_old)/abs(v_load)**2 # new admittance of the load
   ps.y_bus_red_mod[(all_load_bus_idx,) * 2] = y_new - y_old
@@ -63,7 +71,10 @@ while t < t_end:
   # Store result
   res['t'].append(t)
   res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
+<<<<<<< HEAD
   res['P_4'].append(np.real(s_4)*ps.s_n) # extract the active power of the generator 4
+=======
+>>>>>>> c8ba5d8cb1292c9e8b4c070ab6cb3e75026fd13d
   
 
 H = ps.gen['GEN'].par['H'] # Inertia of the generators
@@ -71,6 +82,7 @@ COI = res['gen_speed']@H/np.sum(H)
 
 print('Simulation completed in {:.2f} seconds.'.format(time.time() - t_0))
 
+<<<<<<< HEAD
 # plt.figure(1)
 # plt.plot(res['t'], res['gen_speed'])
 # plt.xlabel('Time [s]')
@@ -88,3 +100,17 @@ plt.xlabel('Time [s]')
 plt.ylabel('P4 [MW]')
 
 plt.show()
+=======
+plt.figure(1)
+plt.plot(res['t'], res['gen_speed'])
+plt.xlabel('Time [s]')
+plt.ylabel('Gen. speed')
+plt.legend(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10'])
+
+plt.figure(2)
+plt.plot(res['t'], COI)
+plt.xlabel('Time [s]')
+plt.ylabel('COI freq')
+
+plt.show()
+>>>>>>> c8ba5d8cb1292c9e8b4c070ab6cb3e75026fd13d
