@@ -16,8 +16,10 @@ ps = dps.PowerSystemModel(model=model)
 ps.init_dyn_sim() # initialize power flow on the network
 print(max(abs(ps.state_derivatives(0, ps.x_0, ps.v_0))))
 
-t_end = 30 # simulation time
-t_event = 1 # time of the load step occurance
+t_end = 30              # simulation time
+t_event = 1             # time of the load step occurance
+event_true = True       # boolean to activate
+power_unbanlance = 1e2  # power unbalance in the generator bus [MW]
 t_0 = time.time()
 x_0 = ps.x_0.copy() # set the initial state as the one computes before
 
@@ -27,21 +29,24 @@ sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x_0,
 t = 0
 res = defaultdict(list) # store the results
 
-event_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][1] # bus index of the generator where the P step
+# event_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'][5] # bus index of the generator where the P step
+event_load_bus_idx = 1
 all_load_bus_idx = ps.loads['Load'].bus_idx_red['terminal'] # index of all the loads
 
 s_const_old = (ps.loads['Load'].par['P'] + 1j * ps.loads['Load'].par['Q'])/ps.s_n # "old" apparent power
 v_old = ps.v_0[all_load_bus_idx]
 y_old = np.conj(s_const_old)/abs(v_old)**2 # admittance of the load
 v = ps.v_0
-        
+
+
 while t < t_end:
   sys.stdout.write("\r%d%%" % (t/(t_end)*100)) # print the percentage of the simulation completed
 
   # Implement the short circuit in the bus where the generator is connected
-  if t > t_event and t < t_event +5e-3:
-   s_const_old[event_load_bus_idx] += 1e2/ps.s_n 
- 
+  if t > t_event and  event_true:
+    s_const_old[event_load_bus_idx] += power_unbanlance/ps.s_n
+    event_true = False
+
   # Simulate next step
   result = sol.step() # integrate the system one step
   # Extract the information from the solution
@@ -50,8 +55,8 @@ while t < t_end:
   t = sol.t
 
   # Constant power loads: update the modified admittance matrix
-  Igen_4_3 = ps.y_bus_red_full[3,2]*(v[3] - v[2])
-  Igen_4_5 = ps.y_bus_red_full[3,4]*(v[3] - v[4])
+  Igen_4_3  = ps.y_bus_red_full[3,2]*(v[3] - v[2])
+  Igen_4_5  = ps.y_bus_red_full[3,4]*(v[3] - v[4])
   Igen_4_14 = ps.y_bus_red_full[3,13]*(v[3] - v[13])
   s_4 = v[3]*np.conj(Igen_4_3 + Igen_4_5 + Igen_4_14)
   v_load = v[all_load_bus_idx]
@@ -63,7 +68,9 @@ while t < t_end:
   # Store result
   res['t'].append(t)
   res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
-  res['P_4'].append(np.real(s_4)*ps.s_n) # extract the active power of the generator 4
+  res['P_4'].append(np.real(s_4)*ps.s_n) # computed active power of the generator 4
+  res['P_4_setpoint'].append( np.real(s_const_old[event_load_bus_idx]*ps.s_n) ) # extract the apparent power of the generator 4
+  res['p'].append(np.real(s_const_old)*ps.s_n)
   
 
 H = ps.gen['GEN'].par['H'] # Inertia of the generators
@@ -71,20 +78,37 @@ COI = res['gen_speed']@H/np.sum(H)
 
 print('Simulation completed in {:.2f} seconds.'.format(time.time() - t_0))
 
-# plt.figure(1)
-# plt.plot(res['t'], res['gen_speed'])
-# plt.xlabel('Time [s]')
-# plt.ylabel('Gen. speed')
-# plt.legend(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10'])
+# Speed of all the generators
+plt.figure(1)
+plt.plot(res['t'], res['gen_speed'])
+plt.xlabel('Time [s]')
+plt.ylabel('Gen. speed [pu]')
+plt.legend(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10'])
+plt.title('Speed of the generators')
 
+# Center of Inertia (COI) frequency
 plt.figure(2)
 plt.plot(res['t'], COI)
 plt.xlabel('Time [s]')
-plt.ylabel('COI freq')
+plt.ylabel('COI freq [pu]')
+plt.title('Center of Inertia (COI) frequency')
 
-plt.figure(3)
+# Power of the generator 4
+plt.figure(4)
 plt.plot(res['t'], res['P_4'])
+plt.plot(res['t'], res['P_4_setpoint'])
 plt.xlabel('Time [s]')
-plt.ylabel('P4 [MW]')
+plt.ylabel('p4 [MW]')
+plt.legend(['Computed power', 'Set point'])
+plt.title('Power of the generator 4')
+
+# Power of all the generators
+plt.figure(5)
+plt.plot(res['t'], res['p'])
+plt.xlabel('Time [s]')
+plt.ylabel('Gen. active power')
+plt.legend(['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L19' ])
+plt.title('power of all the generators')
+
 
 plt.show()
