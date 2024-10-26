@@ -13,8 +13,8 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import time
 import numpy as np
-import dynpssimpy.dynamic as dps
-import dynpssimpy.solvers as dps_sol
+import tops.dynamic as dps
+import tops.solvers as dps_sol
 import importlib
 importlib.reload(dps)
 import importlib
@@ -22,14 +22,14 @@ import importlib
 if __name__ == '__main__':
 
     # Load model
-    import dynpssimpy.ps_models.k2a as model_data
+    import tops.ps_models.k2a as model_data
     importlib.reload(model_data)
     model = model_data.load()
 
-    model['pll'] = {'PLL1':[
-        ['name', 'T_filter', 'bus'],
-        *[[f'PLL{i}', 0.1, bus[0]] for i, bus in enumerate(model['buses'][1:])],
-    ]}
+    # model['pll'] = {'PLL1':[
+    #     ['name', 'T_filter', 'bus'],
+    #     *[[f'PLL{i}', 0.1, bus[0]] for i, bus in enumerate(model['buses'][1:])],
+    # ]}
 
     model['vsc'] = {'VSC': [
         ['name',    'T_pll',    'T_i',  'bus',  'P_K_p',    'P_K_i',    'Q_K_p',    'Q_K_i',    'P_setp',   'Q_setp'],
@@ -37,11 +37,12 @@ if __name__ == '__main__':
         ['VSC1',    0.1,        1,      'B6',   0.01,        1e-12,        0.1,        0.1,        0,          0],
     ]}
 
-    # import dynpssimpy.user_models.user_lib as user_lib
-    import examples.user_models.user_lib as user_lib
+    # # import tops.user_models.user_lib as user_lib
+    # import examples.user_models.user_lib as user_lib
 
     # Power system model
-    ps = dps.PowerSystemModel(model=model, user_mdl_lib=user_lib)
+    # ps = dps.PowerSystemModel(model=model, user_mdl_lib=user_lib)
+    ps = dps.PowerSystemModel(model=model)
     ps.init_dyn_sim()
     print(max(abs(ps.ode_fun(0, ps.x_0))))
 
