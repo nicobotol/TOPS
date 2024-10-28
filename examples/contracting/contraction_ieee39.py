@@ -64,6 +64,11 @@ while t < t_end:
   I_4_5  = ps.y_bus_red_full[3,4]*(v[3] - v[4])
   I_4_14 = ps.y_bus_red_full[3,13]*(v[3] - v[13])
   s_4 = v[3]*np.conj(I_4_3 + I_4_5 + I_4_14)
+  
+  I_3_2  = ps.y_bus_red_full[2,1]*(v[2] - v[1])
+  I_3_4  = ps.y_bus_red_full[2,3]*(v[2] - v[3])
+  I_3_18 = ps.y_bus_red_full[2,17]*(v[2] - v[17])
+  s_3 = v[2]*np.conj(I_3_2 + I_3_4 + I_3_18)
 
   # Compute power of the generator 4
   I_33_19 = ps.y_bus_red_full[32,18]*(v[32] - v[18]) # current from bus 33 to 19
@@ -76,6 +81,7 @@ while t < t_end:
   res['t'].append(t)
   res['gen_speed'].append(ps.gen['GEN'].speed(x, v).copy()) # extract the speed of the generators
   res['P_load_4'].append(np.real(s_4)*ps.s_n)                    # computed active power of the load 4
+  res['P_load_3'].append(np.real(s_3)*ps.s_n)                    # computed active power of the load 4
   res['P_load_4_setpoint'].append( np.real(s_const_old[event_load_bus_idx]*ps.s_n) ) # extract the apparent power of the load 4
   res['P_loads'].append(np.real(s_const_old)*ps.s_n)
   res['P_gen_4'].append(np.real(s_gen_4)*ps.s_n)            # computed active power of the load 4
@@ -115,6 +121,7 @@ fig.tight_layout()
 plt.figure(4)
 plt.plot(res['t'], res['P_load_4'])
 plt.plot(res['t'], res['P_load_4_setpoint'])
+plt.plot(res['t'], res['P_load_3'])
 plt.xlabel('Time [s]')
 plt.ylabel('p4 [MW]')
 plt.legend(['Computed power', 'Set point'])
