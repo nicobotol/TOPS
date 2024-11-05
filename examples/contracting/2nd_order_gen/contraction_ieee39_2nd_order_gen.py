@@ -6,15 +6,8 @@ import tops.dynamic as dps
 import tops.solvers as dps_sol
 import numpy as np
 
-# Add path to the power system models
-import os
-import sys
-script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's directory
-root_dir = os.path.abspath(os.path.join(script_dir, '../../src/tops/ps_models'))
-sys.path.append(root_dir)
-
 # Load model
-import ieee39 as model_data
+import ieee39_2nd_order_gen as model_data
 
 model = model_data.load()
 
@@ -93,15 +86,13 @@ while t < t_end:
   res['P_loads'].append(np.real(s_const_old)*ps.s_n)
   res['P_gen_4'].append(np.real(s_gen_4)*ps.s_n)            # computed active power of the load 4
   res['P_e'].append(ps.gen['GEN'].P_e(x, v).copy())         # power of the generators
-  res['load_P'].append((np.real(ps.loads['Load'].y_load)*ps.s_n).copy())
-  res['load_Q'].append((np.conj(ps.loads['Load'].y_load)*ps.s_n).copy())
   
 
 H = ps.gen['GEN'].par['H'] # Inertia of the generators
 COI = res['gen_speed']@H/np.sum(H)
 RoCoF = np.diff(COI)/np.diff(res['t']) # Rate of Change of Frequency
 droop_4 = (res['P_gen_4'][-1] - res['P_gen_4'][0])/(res['gen_speed'][4][-1] - res['gen_speed'][4][0]) 
-# print('Droop of the generator 4: {:.2f}'.format(droop_4))
+print('Droop of the generator 4: {:.2f}'.format(droop_4))
 
 print('Simulation completed in {:.2f} seconds.'.format(time.time() - t_0))
 
@@ -136,9 +127,9 @@ plt.ylabel('p4 [MW]')
 plt.legend(['Computed power', 'Set point'])
 plt.title('Power of the load 4')
 
-# Power of all the loads
+# Power of all the load
 plt.figure(5)
-plt.plot(res['t'], res['load_P'])
+plt.plot(res['t'], res['P_loads'])
 plt.xlabel('Time [s]')
 plt.ylabel('Load active power')
 plt.legend(['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L19' ])

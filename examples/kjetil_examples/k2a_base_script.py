@@ -3,17 +3,26 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-import sys
-import dynpssimpy.dynamic as dps
-import dynpssimpy.solvers as dps_sol
+
+# sys.path.append('M:\\Documents\\DOTTORATO\\courses\\ET8105 - Power System Operation and Control\\tops\\src\\tops\\ps_models')
+import tops.dynamic as dps
+import tops.solvers as dps_sol
 import importlib
 importlib.reload(dps)
+
+# Add path to the power system models
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's directory
+root_dir = os.path.abspath(os.path.join(script_dir, '../../src/tops'))
+sys.path.append(root_dir)
 
 
 if __name__ == '__main__':
 
     # Load model
-    import dynpssimpy.ps_models.k2a_base_case_with_AVRs_and_GOVs as model_data
+    # import tops.ps_models.k2a_base_case_with_AVRs_and_GOVs as model_data
+    import ps_models.k2a_base_case_with_AVRs_and_GOVs as model_data
     model = model_data.load()
 
     # Power system model
