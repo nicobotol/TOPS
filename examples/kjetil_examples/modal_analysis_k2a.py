@@ -1,13 +1,19 @@
-import dynpssimpy.dynamic as dps
-import dynpssimpy.modal_analysis as dps_mdl
-import dynpssimpy.plotting as dps_plt
+import tops.dynamic as dps
+import tops.modal_analysis as dps_mdl
+import tops.plotting as dps_plt
 import numpy as np
 import matplotlib.pyplot as plt
+
+import os
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's directory
+root_dir = os.path.abspath(os.path.join(script_dir, '../../src/tops/ps_models'))
+sys.path.append(root_dir)
 
 if __name__ == '__main__':
 
     # import dynpssimpy.ps_models.kaja_no_controls as model_data
-    import dynpssimpy.ps_models.k2a_base_case_with_AVRs_and_GOVs as model_data
+    import k2a_base_case_with_AVRs_and_GOVs as model_data
     # import dynpssimpy.ps_models.n44 as model_data
     model = model_data.load()
     ps = dps.PowerSystemModel(model=model)
@@ -39,7 +45,7 @@ if __name__ == '__main__':
     mode_idx = ps_lin.get_mode_idx(['em'], damp_threshold=damplim)
     print('Mode indices with damping less than', dampl,'% :',mode_idx)
     # mode_idx = [14, 12, 10]
-    rev = ps_lin.rev
+    rev = ps_lin.rev # Right eigenvectors
     # Selecting mode shapes to print
     maxmode=0.0
     Gennumber=0
