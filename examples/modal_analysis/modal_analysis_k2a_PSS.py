@@ -3,7 +3,7 @@ import tops.modal_analysis as dps_mdl
 import tops.plotting as dps_plt
 import numpy as np
 import matplotlib.pyplot as plt
-
+1
 import os
 import sys
 script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's directory
@@ -19,18 +19,13 @@ ps.init_dyn_sim()
 # Perform system linearization
 ps_lin = dps_mdl.PowerSystemModelLinearization(ps)
 
-
 # Find transfer function residuals
 get_eigs=False
 t0=0
 x0=np.array([])
+input_description = "PSS_design"
+output_description = "PSS_design"
 ps_lin.linearize(get_eigs, None, t0, x0, input_description, output_description)
-
-b = np.zeros(ps.n_states)
-b[ps.gen['GEN'].state_idx_global['e_q_t']] = 1/ps.gen['GEN'].par['T_d0_t']
-
-c = np.zeros(ps.n_states)
-c[ps.gen['GEN'].state_idx_global['speed']] = 1
 
 # ps_lin.linearize()
 ps_lin.eigenvalue_decomposition()
