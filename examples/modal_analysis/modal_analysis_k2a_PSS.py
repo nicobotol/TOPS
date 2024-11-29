@@ -87,4 +87,13 @@ for ax_, ms in zip(ax, mode_shape.T):
 
 plt.show()
 
+residues = ps_lin.residues(critmode-1)
+angle = np.angle(residues)
+compensation_angle = np.pi - angle
 
+alpha = (1 + np.sin(compensation_angle/2))/(1 - np.sin(compensation_angle/2))
+
+T4 = 1/(np.sqrt(alpha)*ps_lin.eigs.imag[critmode-1]/(2*np.pi))
+T3= alpha*T4
+
+print(' End code')
