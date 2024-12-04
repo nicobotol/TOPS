@@ -93,7 +93,7 @@ compensation_angle = np.pi - angle
 
 alpha = (1 - np.sin(compensation_angle/2))/(1 + np.sin(compensation_angle/2))
 
-T4 = 1/(np.sqrt(alpha)*ps_lin.eigs.imag[critmode]/(2*np.pi))
+T4 = 1/(np.sqrt(alpha)*ps_lin.eigs.imag[critmode])
 T3= alpha*T4
 
 ps.pss['STAB1'].par[1]['T_1'] = T3[1,1]
