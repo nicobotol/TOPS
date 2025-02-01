@@ -6,7 +6,7 @@ class PowerSystemModelLinearization:
     def __init__(self, ps):
         self.ps = ps
         self.n = self.ps.n_states
-        self.eps = 1e-10
+        self.eps = 1e-6
         self.linearize_inputs_v2 = self.linearize_inputs
         self.linearization_ready = False
         self.eigenvalues_ready = False
