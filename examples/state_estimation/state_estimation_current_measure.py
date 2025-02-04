@@ -14,7 +14,7 @@ sys.path.append(root_dir)
 if __name__ == '__main__':
 
   # Load model
-  import bus2 as model_data
+  import k2a as model_data
   model = model_data.load()
 
   # Power system model
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     v = sol.v
     t = sol.t
 
-    i = ps.y_bus_red_full @ v # Line Currents
+    i_bus = ps.y_bus_lf @ v # Line Currents
 
     # Noise
     epsilon_angle_mean = 0*np.ones(ps.n_bus)
@@ -73,6 +73,9 @@ if __name__ == '__main__':
     epsilon_mag = np.random.multivariate_normal(mean=epsilon_mag_mean, cov=R_mag, size=1)
     epsilon = np.concatenate((epsilon_angle.T, epsilon_mag.T), axis=0).reshape(-1, 1)
     z = H@X + epsilon
+
+    i_noise = i_bus + 10*epsilon_mag
+    v_noise = np.linalg.inv(ps.y_bus_lf)@i_noise.T # voltage measure with noise
 
     x_hat = np.linalg.inv(H.T @ np.linalg.inv(R) @ H) @ H.T @ np.linalg.inv(R) @ z
 
