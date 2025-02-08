@@ -52,6 +52,7 @@ class PowerSystemModel:
         self.n_bus = len(self.buses)
 
         self.y_bus_lf = None
+        self.incidence_B = None
         self.power_flow_ready = False
         
         self.setup_ready = False
@@ -126,6 +127,7 @@ class PowerSystemModel:
             'load_flow_pq',
             'load_flow_pv',
             'load_flow_adm',
+            'load_incidence_matrix',
             'dyn_const_adm',
             'dyn_var_adm',
             'init_from_load_flow',
@@ -175,6 +177,18 @@ class PowerSystemModel:
 
         self.y_bus_lf = y_lf
         return y_lf
+    
+    def build_incidence_B(self):
+
+        y_lf = np.zeros((self.n_bus,) * 2, dtype=complex)
+        for mdl in self.mdl_instructions['load_incidence_matrix']:
+            data, (row_idx, col_idx) = mdl.load_incidence_matrix()
+            sp_mat = sp.csr_matrix((data.flatten(), (row_idx.flatten(), col_idx.flatten())),
+                                   shape=(self.n_bus,) * 2)
+            y_lf += sp_mat.todense()
+
+        self.incidence_B = y_lf
+        return y_lf
 
     def build_y_bus_dyn(self):
 
@@ -195,6 +209,7 @@ class PowerSystemModel:
 
         if self.y_bus_lf is None:
             self.build_y_bus_lf()
+            self.build_incidence_B
 
         bus_type = np.array(['PQ'] * self.n_bus, dtype='<U2')
 
