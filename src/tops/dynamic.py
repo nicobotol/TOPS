@@ -42,7 +42,7 @@ class PowerSystemModel:
         self.model = model
 
         self.perform_kron_reduction = False
-        self.pf_max_it = 10
+        self.pf_max_it = 100
         self.pf_tol = 1e-8
 
         self.s_n = model['base_mva']
