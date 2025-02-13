@@ -1,26 +1,28 @@
+# in this file we solve the PF with the shunt admittance (the ones loaded from the model), but we build the measurement matrix without it. 
+
 import sys
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
-# Use LaTeX for text rendering
-mpl.rcParams['text.usetex'] = True
-mpl.rcParams['font.family'] = 'serif'
-mpl.rcParams['font.serif'] = ['Computer Modern']
+# # Use LaTeX for text rendering
+# mpl.rcParams['text.usetex'] = True
+# mpl.rcParams['font.family'] = 'serif'
+# mpl.rcParams['font.serif'] = ['Computer Modern']
 
 import time
+import copy
 import os
 import tops.dynamic as dps
 import tops.solvers as dps_sol
 import numpy as np
 from scipy.linalg import block_diag
-np.random.seed(4)
+np.random.seed(42+2)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's directory
 root_dir = os.path.abspath(os.path.join(script_dir, '../../src/tops/ps_models'))
 sys.path.append(root_dir)
 
-# Write a function that wrotes in a latex table the MSE and J values
+# Write a function that writes in a latex table the MSE and J values
 def write_latex_table(case_names, MSE_errors, J_errors, filename):
     filepath = f"../assigments/system_estimation/results/{filename}.tex"
     label = f"tab:{filename}"
@@ -51,7 +53,7 @@ if __name__ == '__main__':
   #                         |_|
 
   # Load model
-  import gs4 as model_data
+  import gs4_wShunt as model_data
   # import k2a as model_data
   model = model_data.load()
 
@@ -150,15 +152,23 @@ if __name__ == '__main__':
   H_Iv    = np.eye(ps.n_bus) # Identity matrix
   H_v     = np.block([[H_Rv, np.zeros([ps.n_bus,ps.n_bus])], [np.zeros([ps.n_bus,ps.n_bus]), H_Iv]])
 
-  # Measure Ibus
-  H_RIbusRv  = np.real(ps.y_bus_red_full)
-  H_RIbusIv  = -np.imag(ps.y_bus_red_full)
-  H_IIbusRv  = np.imag(ps.y_bus_red_full)
-  H_IIbusIv  = np.real(ps.y_bus_red_full)
+  # Modify the line parameters and build the new y_bus_matrix
+  ps_modified = copy.deepcopy(ps) # copy the power system model
+  # for i in range(ps.n_lines):
+  #   ps_modified.lines['Line'].data[i]['B'] = 0 # remove shunt admittance
+  #   ps_modified.lines['Line'].shunt[i] = 0
+
+  ps_modified.build_y_bus_dyn() # build the y bus matrix with the new line parameters
+  ps_modified.y_bus_red_full = ps_modified.kron_reduction(ps_modified.y_bus_dyn, ps_modified.bus_idx_red)
+
+  H_RIbusRv  = np.real(ps_modified.y_bus_red_full)
+  H_RIbusIv  = -np.imag(ps_modified.y_bus_red_full)
+  H_IIbusRv  = np.imag(ps_modified.y_bus_red_full)
+  H_IIbusIv  = np.real(ps_modified.y_bus_red_full)
   H_Ibus     = np.block([[H_RIbusRv, H_RIbusIv], [H_IIbusRv, H_IIbusIv]])
 
   # Measure Iline
-  J = np.diag(ps.lines['Line'].admittance) @ incidence.T 
+  J = np.diag(ps_modified.lines['Line'].admittance) @ incidence.T 
   H_RIlineRv  = np.real(J)
   H_RIlineIv  = -np.imag(J)
   H_IIlineRv  = np.imag(J)
@@ -262,74 +272,72 @@ if __name__ == '__main__':
   MSE_errors = [MSE_hat, MSE_hat_V_Ibus, MSE_hat_v, MSE_hat_Ibus, MSE_hat_Iline]
   names = list(range(1, ps.n_bus+1))
 
-  print(f"Error Iline: {MSE_errors}")
+  plt.figure()
+  plt.plot(names, np.abs(x), 'o', label='Real values')
+  plt.plot(names, np.abs(x_hat_comb), 'x', label=case_names[0])
+  plt.plot(names, np.abs(x_hat_comb_V_Ibus), '1',  label=case_names[1]) # v measuring i
+  plt.plot(names, np.abs(z_v_comb), 'v', label=case_names[2])     # v measuring v
+  plt.plot(names, np.abs(x_hat_comb_Ibus), '2',  label=case_names[3]) # v measuring i
+  plt.plot(names, np.abs(x_hat_comb_Iline), '3',  label=case_names[4]) # v measuring i
+  plt.xlabel('Bus number')
+  plt.ylabel('Mag [-]')
+  plt.legend()
 
-  # plt.figure()
-  # plt.plot(names, np.abs(x), 'o', label='Real values')
-  # plt.plot(names, np.abs(x_hat_comb), 'x', label=case_names[0])
-  # plt.plot(names, np.abs(x_hat_comb_V_Ibus), '1',  label=case_names[1]) # v measuring i
-  # plt.plot(names, np.abs(z_v_comb), 'v', label=case_names[2])     # v measuring v
-  # plt.plot(names, np.abs(x_hat_comb_Ibus), '2',  label=case_names[3]) # v measuring i
-  # plt.plot(names, np.abs(x_hat_comb_Iline), '3',  label=case_names[4]) # v measuring i
-  # plt.xlabel('Bus number')
-  # plt.ylabel('Mag [-]')
-  # plt.legend()
+  plt.figure()
+  plt.plot(names, np.arctan2(np.imag(x),np.real(x)), 'o', label='Real values')
+  plt.plot(names, np.arctan2(np.imag(x_hat_comb),np.real(x_hat_comb)), 'x', label=case_names[0])
+  plt.plot(names, np.arctan2(np.imag(x_hat_comb_V_Ibus),np.real(x_hat_comb_V_Ibus)), '1',  label=case_names[1]) # v measuring i
+  plt.plot(names, np.arctan2(np.imag(z_v_comb),np.real(z_v_comb)), 'v', label=case_names[2])     # v measuring v
+  plt.plot(names, np.arctan2(np.imag(x_hat_comb_Ibus),np.real(x_hat_comb_Ibus)), '2',  label=case_names[3]) # v measuring i
+  plt.plot(names, np.arctan2(np.imag(x_hat_comb_Iline),np.real(x_hat_comb_Iline)), '3',  label=case_names[4]) # v measuring i
+  plt.xlabel('Bus number')
+  plt.ylabel('Angle [-]')
+  plt.legend()
 
-  # plt.figure()
-  # plt.plot(names, np.arctan2(np.imag(x),np.real(x)), 'o', label='Real values')
-  # plt.plot(names, np.arctan2(np.imag(x_hat_comb),np.real(x_hat_comb)), 'x', label=case_names[0])
-  # plt.plot(names, np.arctan2(np.imag(x_hat_comb_V_Ibus),np.real(x_hat_comb_V_Ibus)), '1',  label=case_names[1]) # v measuring i
-  # plt.plot(names, np.arctan2(np.imag(z_v_comb),np.real(z_v_comb)), 'v', label=case_names[2])     # v measuring v
-  # plt.plot(names, np.arctan2(np.imag(x_hat_comb_Ibus),np.real(x_hat_comb_Ibus)), '2',  label=case_names[3]) # v measuring i
-  # plt.plot(names, np.arctan2(np.imag(x_hat_comb_Iline),np.real(x_hat_comb_Iline)), '3',  label=case_names[4]) # v measuring i
-  # plt.xlabel('Bus number')
-  # plt.ylabel('Angle [-]')
-  # plt.legend()
-
-  # # Plot the graphs side by side
-  # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 5.5))
-  # # First plot
-  # ax1.plot(names, np.real(x), 'o', label='Real values')
-  # ax1.plot(names, np.real(x_hat_comb), 'x', label=case_names[0])
-  # ax1.plot(names, np.real(x_hat_comb_V_Ibus), '1', label=case_names[1])  # v measuring i
-  # ax1.plot(names, np.real(z_v_comb), 'v', label=case_names[2])  # v measuring v
-  # ax1.plot(names, np.real(x_hat_comb_Ibus), '2', label=case_names[3])  # v measuring i
-  # ax1.plot(names, np.real(x_hat_comb_Iline), '3', label=case_names[4])  # v measuring i
-  # ax1.set_xlabel('Bus number', fontsize=20)
-  # ax1.set_ylabel('Real [-]', fontsize=20)
-  # ax1.set_title('Real part', fontsize=20)
-  # ax1.tick_params(axis='both', which='major', labelsize=15)
-  # ax1.legend(fontsize=15)
-  # # Second plot
-  # ax2.plot(names, np.imag(x), 'o', label='Real values')
-  # ax2.plot(names, np.imag(x_hat_comb), 'x', label=case_names[0])
-  # ax2.plot(names, np.imag(x_hat_comb_V_Ibus), '1', label=case_names[1])  # v measuring i
-  # ax2.plot(names, np.imag(z_v_comb), 'v', label=case_names[2])  # v measuring v
-  # ax2.plot(names, np.imag(x_hat_comb_Ibus), '2', label=case_names[3])  # v measuring i
-  # ax2.plot(names, np.imag(x_hat_comb_Iline), '3', label=case_names[4])  # v measuring
-  # ax2.set_xlabel('Bus number', fontsize=20)
-  # ax2.set_ylabel('Imag [-]', fontsize=20)
-  # ax2.set_title('Imaginary part', fontsize=20)
-  # ax2.tick_params(axis='both', which='major', labelsize=15)
-  # # Save the figure as a PDF
+  # Plot the graphs side by side
+  fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 5.5))
+  # First plot
+  ax1.plot(names, np.real(x), 'o', label='Real values')
+  ax1.plot(names, np.real(x_hat_comb), 'x', label=case_names[0])
+  ax1.plot(names, np.real(x_hat_comb_V_Ibus), '1', label=case_names[1])  # v measuring i
+  ax1.plot(names, np.real(z_v_comb), 'v', label=case_names[2])  # v measuring v
+  ax1.plot(names, np.real(x_hat_comb_Ibus), '2', label=case_names[3])  # v measuring i
+  ax1.plot(names, np.real(x_hat_comb_Iline), '3', label=case_names[4])  # v measuring i
+  ax1.set_xlabel('Bus number', fontsize=20)
+  ax1.set_ylabel('Real [-]', fontsize=20)
+  ax1.set_title('Real part', fontsize=20)
+  ax1.tick_params(axis='both', which='major', labelsize=15)
+  ax1.legend(fontsize=15)
+  # Second plot
+  ax2.plot(names, np.imag(x), 'o', label='Real values')
+  ax2.plot(names, np.imag(x_hat_comb), 'x', label=case_names[0])
+  ax2.plot(names, np.imag(x_hat_comb_V_Ibus), '1', label=case_names[1])  # v measuring i
+  ax2.plot(names, np.imag(z_v_comb), 'v', label=case_names[2])  # v measuring v
+  ax2.plot(names, np.imag(x_hat_comb_Ibus), '2', label=case_names[3])  # v measuring i
+  ax2.plot(names, np.imag(x_hat_comb_Iline), '3', label=case_names[4])  # v measuring
+  ax2.set_xlabel('Bus number', fontsize=20)
+  ax2.set_ylabel('Imag [-]', fontsize=20)
+  ax2.set_title('Imaginary part', fontsize=20)
+  ax2.tick_params(axis='both', which='major', labelsize=15)
+  # Save the figure as a PDF
   # plt.tight_layout()
-  # # plt.savefig('../assigments/system_estimation/results/combined_plots.pdf')
-  # plt.show()
+  # plt.savefig('../assigments/system_estimation/results/combined_plots_estimation_wo_shunt.pdf')
+
 
   
-  # fig, ax1 = plt.subplots()
-  # line1,= ax1.plot(case_names, MSE_errors, 'o', label='MSE')
-  # ax1.set_xlabel("Cases")
-  # ax1.set_ylabel("MSE Error")
-  # ax2 = ax1.twinx()
-  # line2, = ax2.plot(case_names, J_errors, 'x', label='J')
-  # ax2.set_ylabel("J")
-  # lines = [line1, line2]  # Combine both lines
-  # labels = [line.get_label() for line in lines]  # Extract labels
-  # ax1.legend(lines, labels, loc="right")  # Set legend
+  fig, ax1 = plt.subplots()
+  line1,= ax1.plot(case_names, MSE_errors, 'o', label='MSE')
+  ax1.set_xlabel("Cases")
+  ax1.set_ylabel("MSE Error")
+  ax2 = ax1.twinx()
+  line2, = ax2.plot(case_names, J_errors, 'x', label='J')
+  ax2.set_ylabel("J")
+  lines = [line1, line2]  # Combine both lines
+  labels = [line.get_label() for line in lines]  # Extract labels
+  ax1.legend(lines, labels, loc="right")  # Set legend
 
   # plt.show()
 
-  # # Write the results in a latex table
-  # write_latex_table(case_names, MSE_errors, J_errors, 'basic_case_increased_error_voltage')
+  # Write the results in a latex table
+  write_latex_table(case_names, MSE_errors, J_errors, 'estimation_wo_shunt')
 
