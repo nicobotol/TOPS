@@ -12,6 +12,20 @@ script_dir = os.path.dirname(os.path.abspath(__file__))  # current file's direct
 root_dir = os.path.abspath(os.path.join(script_dir, '../../src/tops/ps_models'))
 sys.path.append(root_dir)
 
+def h_function(x, idx): # model of the measures
+
+  z = x[idx] # generator speed
+
+  return z
+
+def H_function(idx, n_measures, n_states):
+
+  H = np.zeros([n_measures, n_states])
+  for i in range(n_measures):
+    H[i, idx[i]] = 1
+
+  return H
+
 if __name__ == '__main__':
 
   # Load model
@@ -33,16 +47,15 @@ if __name__ == '__main__':
   t_0 = time.time()
 
   # Model of the sensor
-  H_mag   = np.eye(ps.n_bus) # Identity matrix
-  H_angle = np.eye(ps.n_bus) # Identity matrix
-  H = np.block([[H_angle, np.zeros_like(H_angle)], [np.zeros_like(H_angle), H_mag]])
+  idx_omega = ps.gen['GEN'].state_idx['speed']
+  H = H_function(idx_omega, ps.gen['GEN'].n_units, ps.n_states)
   
   # Noise
-  R_angle     = 1e3*np.eye(ps.n_bus)  # Identity matrix
-  R_mag       = 1e3*np.eye(ps.n_bus)  # Identity matrix
-  R_pred      = np.block([[R_angle, np.zeros_like(R_angle)], [np.zeros_like(R_angle), R_mag]])
+  R_angle = 1e3*np.eye(ps.n_bus)  # Identity matrix
+  R_mag   = 1e3*np.eye(ps.n_bus)  # Identity matrix
+  R_pred  = np.block([[R_angle, np.zeros_like(R_angle)], [np.zeros_like(R_angle), R_mag]])
 
-  Q = 0*np.eye(ps.n_states) # covariance of the noise of the dynamic
+  Q = 1*np.eye(ps.n_states) # covariance of the noise of the dynamic
   
   error_v = 1e-1
   var_r  = (error_v/3)**2
@@ -53,6 +66,7 @@ if __name__ == '__main__':
   x_v_mag     = 0*np.ones(ps.n_bus)
   X_pred      = np.concatenate((x_v_angles, x_v_mag), axis=0).reshape(-1, 1)
   P_pred      = np.linalg.inv(H.T @ np.linalg.inv(R_pred) @ H)
+  x_hat = ps.x0
 
   for i in range(t_end): 
     #   _   _       _          
@@ -62,17 +76,16 @@ if __name__ == '__main__':
     #  |_| \_|\___/|_|___/\___|
 
     # Noise on the state
-    nu_x  = np.random.multivariate_normal(mean=0, cov=Q, size=1)
+    nu_x  = np.random.multivariate_normal(mean=np.zeros(ps.n_states), cov=Q, size=1)
 
     # Noise on the measures
-    epsilon_Rv  = np.random.multivariate_normal(mean=0, cov=R_Rv, size=1)
-    
+    epsilon_Rv  = np.random.multivariate_normal(mean=np.zeros(2*ps.n_bus), cov=R_Rv, size=1)
     
     ps_lin = dps_mdl.PowerSystemModelLinearization(ps)
     ps_lin.linearize(x0 = x_hat)
     
     A = ps_lin.a # df/dx
-    G = np.zeros(ps.n_states, ps.n_states) # df/dnu
+    G = np.zeros([ps.n_states, ps.n_states]) # df/dnu
 
     #   ____               _ _      _   _             
     #  |  _ \ _ __ ___  __| (_) ___| |_(_) ___  _ __  
@@ -83,7 +96,7 @@ if __name__ == '__main__':
     sol = dps_sol.ModifiedEulerDAE(ps.state_derivatives, ps.solve_algebraic, 0, x_0, t_end, max_step=5e-3)
     result = sol.step()
     x_hat_pred = sol.y  # x_hat_k+1_pred state of the system
-    z = sol.v           # bus voltages
+    z = h_function(x_hat_pred, idx_omega) # generator speed
     t = sol.t           # time
 
     P_pred = A @ P_pred @ A.T + G @ Q @ G.T # covariance of the state
@@ -95,8 +108,8 @@ if __name__ == '__main__':
     #   \___/| .__/ \__,_|\__,_|\__\___|
     #        |_|                        
 
-    H = # dh/dx
-    h = # measure using the state x_hat_pred
+    H = np.zeros([idx.shape]) # dh/dx
+    h = 1 # measure using the state x_hat_pred
 
     S = H @ P_pred @ H.T + R_pred
     W = P_pred @ H.T @ np.linalg.inv(S)

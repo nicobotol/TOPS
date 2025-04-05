@@ -40,6 +40,44 @@ def plot_eigs(eigs):
 
     fig.canvas.mpl_connect("motion_notify_event", hover)
 
+def plot_eigs_save(eigs, name):
+    fig, ax = plt.subplots(1)
+    sc = ax.scatter(eigs.real, eigs.imag)
+    ax.axvline(0, color='k', linewidth=0.5)
+    ax.axhline(0, color='k', linewidth=0.5)
+    ax.grid(True)
+
+    annot = ax.annotate("", xy=(0, 0), xytext=(20, 20), textcoords="offset points",
+                        bbox=dict(boxstyle="round", fc="w"),
+                        arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
+
+    def update_annot(ind):
+
+        pos = sc.get_offsets()[ind["ind"][0]]
+        annot.xy = pos
+        text = '{:.2f} Hz\n{:.2f}%'.format(pos[1] / (2 * np.pi), -100 * pos[0] / np.sqrt(sum(pos ** 2)))
+        annot.set_text(text)
+        annot.get_bbox_patch().set_facecolor('C0')
+        annot.get_bbox_patch().set_alpha(0.4)
+
+    def hover(event):
+        vis = annot.get_visible()
+        if event.inaxes == ax:
+            cont, ind = sc.contains(event)
+            if cont:
+                update_annot(ind)
+                annot.set_visible(True)
+                fig.canvas.draw_idle()
+            else:
+                if vis:
+                    annot.set_visible(False)
+                    fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+    plt.tight_layout()
+    plt.savefig(name)
+
 
 def phasor(vec, start=0j, ax=None, **kwargs):
 
